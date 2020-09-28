@@ -539,7 +539,7 @@ class Trx(Module):
             'privateKey': self.tron.private_key
         })
 
-    def sign(self, transaction: Any, use_tron: bool = True, multisig: bool = False):
+    def sign(self, transaction: Any, private_key=None, use_tron: bool = True, multisig: bool = False, is_message_hex=False):
         """Safe method for signing your transaction
 
         Warnings:
@@ -561,9 +561,13 @@ class Trx(Module):
             header = TRX_MESSAGE_HEADER if use_tron else ETH_MESSAGE_HEADER
             header += str(len(transaction))
 
-            message_hash = self.tron.keccak(text=header+transaction)
+            if is_message_hex:
+                from eth_hash.auto import keccak as keccak_256
+                message_hash = keccak_256(header.encode('utf-8') + bytes.fromhex(transaction))
+            else:
+                message_hash = self.tron.keccak(text=header + transaction)
 
-            signed_message = Account.sign_hash(self.tron.toHex(message_hash), self.tron.private_key)
+            signed_message = Account.sign_hash(self.tron.toHex(message_hash), private_key or self.tron.private_key)
             return signed_message
 
         if not multisig and 'signature' in transaction:
@@ -571,7 +575,7 @@ class Trx(Module):
 
         try:
             if not multisig:
-                address = self.tron.address.from_private_key(self.tron.private_key).hex.lower()
+                address = self.tron.address.from_private_key(private_key or self.tron.private_key).hex.lower()
                 owner_address = transaction['raw_data']['contract'][0]['parameter']['value']['owner_address']
 
                 if address != owner_address:
@@ -579,7 +583,7 @@ class Trx(Module):
 
             # This option deals with signing of transactions, and writing to the array
             signed_tx = Account.sign_hash(
-                transaction['txID'], self.tron.private_key
+                transaction['txID'], private_key or self.tron.private_key
             )
             signature = signed_tx['signature'].hex()[2:]
 
@@ -628,7 +632,7 @@ class Trx(Module):
         signed_tx = self.sign(transaction)
         return self.broadcast(signed_tx)
 
-    def verify_message(self, message, signed_message=None, address=None, use_tron: bool = True):
+    def verify_message(self, message, signed_message=None, address=None, use_tron: bool = True, is_message_hex=False):
         """ Get the address of the account that signed the message with the given hash.
         You must specify exactly one of: vrs or signature
 
@@ -650,7 +654,12 @@ class Trx(Module):
         header = TRX_MESSAGE_HEADER if use_tron else ETH_MESSAGE_HEADER
         header += str(len(message))
 
-        message_hash = self.tron.keccak(text=header+message)
+        if is_message_hex:
+            from eth_hash.auto import keccak as keccak_256
+            message_hash = keccak_256(header.encode('utf-8') + bytes.fromhex(message))
+        else:
+            message_hash = self.tron.keccak(text=header+message)
+
         recovered = Account.recover_hash(self.tron.toHex(message_hash), signed_message.signature)
 
         tron_address = '41' + recovered[2:]

@@ -213,6 +213,8 @@ class Tron:
         only_unconfirmed = kwargs.setdefault('only_unconfirmed', None)
         previous_last = kwargs.setdefault('previous_last_event_fingerprint', None)
         contract_address = kwargs.setdefault('contract_address', self.default_address.hex)
+        sort = kwargs.setdefault('sort', None)
+        from_timestamp = kwargs.setdefault('from_timestamp', None)
 
         if not self.isAddress(contract_address):
             raise InvalidTronError('Invalid contract address provided')
@@ -258,6 +260,12 @@ class Tron:
 
         if previous_last is not None:
             qs.update({'previousLastEventFingerprint': previous_last})
+
+        if from_timestamp is not None:
+            qs.update({'fromTimestamp': from_timestamp})
+
+        if sort is not None:
+            qs.update({'sort': sort})
 
         return self.manager.request("/event/contract/{0}?{1}"
                                     .format(route, urlencode(qs)), method='get')
@@ -353,3 +361,4 @@ class Tron:
     def is_connected(self):
         """List of available providers"""
         return self.manager.is_connected()
+
